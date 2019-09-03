@@ -1,17 +1,54 @@
 import * as Yup from 'yup';
 import User from '../models/User';
+import { Op } from 'sequelize';
 import Meetup from '../models/Meetup';
-import { parseISO, isBefore, startOfHour } from 'date-fns';
+import {
+  parseISO,
+  isBefore,
+  startOfHour,
+  endOfHour,
+  startOfDay,
+  endOfDay,
+  isDate,
+  format,
+} from 'date-fns';
+import pt from 'date-fns/locale/pt';
 
 class MeetupController {
   async index(req, res) {
-    const meetup = await Meetup.findAll({
-      where: {
-        user_id: req.userId,
-      },
-    });
+    const { date, page = 1 } = req.query;
 
-    return res.json(meetup);
+    if (date) {
+      const isDay = isDate(parseISO(date));
+      if (isDay) {
+        const searchDate = Number(date);
+
+        let startDay = startOfHour(parseISO(date));
+        let endDay = endOfDay(parseISO(date));
+
+        const meetup = await Meetup.findAll({
+          where: {
+            date: {
+              [Op.between]: [startDay, endDay],
+            },
+          },
+          attributes: ['id', 'title', 'description', 'localization', 'date'],
+          order: ['date'],
+          limit: 10,
+          offset: (page - 1) * 10,
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'email'],
+            },
+          ],
+        });
+        return res.json(meetup);
+      }
+    }
+
+    return res.json({ message: 'No meetup has found' });
   }
 
   async store(req, res) {
@@ -61,7 +98,7 @@ class MeetupController {
     const meetup = await Meetup.findByPk(req.params.id);
 
     if (!meetup) {
-      return res.status(400).json({ error: 'Meetup not find' });
+      return res.status(400).json({ error: 'Meetup not found' });
     }
 
     if (meetup.user_id !== req.userId) {
@@ -87,7 +124,7 @@ class MeetupController {
     const meetup = await Meetup.findByPk(req.params.id);
 
     if (!meetup) {
-      return res.status(400).json({ error: 'Meetup not find' });
+      return res.status(400).json({ error: 'Meetup not found' });
     }
 
     if (meetup.user_id !== req.userId) {

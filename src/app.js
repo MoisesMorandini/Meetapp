@@ -10,6 +10,8 @@ class App {
   }
 
   middlewares() {
+    process.once('SIGINT', () => this.server.stop());
+    process.once('SIGTERM', () => this.server.stop());
     this.server.use(express.json());
   }
   routes() {
